@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +30,10 @@ public class Historico {
     private StatusHistorico status;
     @Column(name = "observacoes")
     private String observacoes;
+    @Column(name = "hora")
+    private LocalTime hora;
+    @Column(name = "nome_veterinario", length = 100)
+    private String nomeVeterinario;
 
     @ManyToOne
     @JoinColumn(name = "id_pet")
@@ -85,6 +90,14 @@ public class Historico {
     public String getObservacoes() { return observacoes; }
 
     public void setObservacoes(String observacoes) { this.observacoes = observacoes; }
+
+    public LocalTime getHora() { return hora; }
+
+    public void setHora(LocalTime hora) { this.hora = hora; }
+
+    public String getNomeVeterinario() { return nomeVeterinario; }
+
+    public void setNomeVeterinario(String nomeVeterinario) { this.nomeVeterinario = nomeVeterinario; }
 
     public List<Vacina> getVacinas() { return vacinas; }
 

@@ -6,9 +6,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface VacinaRepository extends JpaRepository<Vacina, UUID> {
 
     Page<Vacina> findByPet_Id(UUID idPet, Pageable pageable);
+
+    List<Vacina> findByHistorico_Id(UUID idHistorico);
+
+    void deleteByPet_Id(UUID idPet);
 }

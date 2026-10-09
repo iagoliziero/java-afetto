@@ -8,13 +8,17 @@ import br.com.fiap.java_afetto.mapper.PetMapper;
 import br.com.fiap.java_afetto.model.Usuario;
 import br.com.fiap.java_afetto.model.Vacina;
 import br.com.fiap.java_afetto.model.pet.Pet;
+import br.com.fiap.java_afetto.repository.HistoricoRepository;
 import br.com.fiap.java_afetto.repository.PetRepository;
+import br.com.fiap.java_afetto.repository.RemedioRepository;
 import br.com.fiap.java_afetto.repository.UsuarioRepository;
+import br.com.fiap.java_afetto.repository.VacinaRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -25,15 +29,24 @@ public class PetService {
     private final PetRepository petRepository;
     private final PetMapper petMapper;
     private final UsuarioRepository usuarioRepository;
+    private final VacinaRepository vacinaRepository;
+    private final RemedioRepository remedioRepository;
+    private final HistoricoRepository historicoRepository;
 
     public PetService(
             PetRepository petRepository,
             PetMapper petMapper,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository,
+            VacinaRepository vacinaRepository,
+            RemedioRepository remedioRepository,
+            HistoricoRepository historicoRepository
     ) {
         this.petRepository = petRepository;
         this.petMapper = petMapper;
         this.usuarioRepository = usuarioRepository;
+        this.vacinaRepository = vacinaRepository;
+        this.remedioRepository = remedioRepository;
+        this.historicoRepository = historicoRepository;
     }
 
     public PetResponse create(PetRequest petRequest) {
@@ -125,6 +138,7 @@ public class PetService {
         );
     }
 
+    @Transactional
     public void delete(UUID id) {
 
         if (!petRepository.existsById(id)) {
@@ -132,6 +146,13 @@ public class PetService {
                     "Pet não encontrado"
             );
         }
+
+        // Os cuidados do pet saem junto com ele: sem isso o banco recusa
+        // apagar um pet que tem vacina, remédio ou consulta (chave estrangeira).
+        // As vacinas vão primeiro porque podem apontar para uma consulta.
+        vacinaRepository.deleteByPet_Id(id);
+        remedioRepository.deleteByPet_Id(id);
+        historicoRepository.deleteByPet_Id(id);
 
         petRepository.deleteById(id);
     }

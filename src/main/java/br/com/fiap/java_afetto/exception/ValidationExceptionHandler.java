@@ -31,4 +31,11 @@ public class ValidationExceptionHandler {
         return new ResponseEntity<>(erro, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(RegraNegocioException.class)
+    public ResponseEntity<Map<String, String>> handleRegraNegocioException(RegraNegocioException ex) {
+        Map<String, String> erro = new HashMap<>();
+        erro.put("erro", ex.getMessage());
+        return new ResponseEntity<>(erro, HttpStatus.BAD_REQUEST);
+    }
+
 }
