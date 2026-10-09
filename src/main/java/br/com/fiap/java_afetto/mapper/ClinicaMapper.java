@@ -16,18 +16,26 @@ import java.util.List;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
-/**
- * A distância, o "perto" e o "favorita" chegam calculados pelo ClinicaService
- * (dependem de quem está logado e de onde ele está).
- */
 @Component
 public class ClinicaMapper {
 
-    public ClinicaResponse clinicaToResponse(
-            Clinica clinica,
+    /**
+     * O que não está na tabela da clínica e chega calculado pelo ClinicaService:
+     * distância e "perto" (dependem de onde o usuário está), "favorita" (de quem
+     * está logado) e o resumo das avaliações (da tabela de avaliações).
+     */
+    public record DadosCalculados(
             Double distanciaKm,
             boolean perto,
             boolean favorita,
+            Double notaMedia,
+            long totalAvaliacoes
+    ) {
+    }
+
+    public ClinicaResponse clinicaToResponse(
+            Clinica clinica,
+            DadosCalculados dados,
             List<ClinicaVeterinario> equipe
     ) {
 
@@ -55,9 +63,11 @@ public class ClinicaMapper {
                 clinica.getEmail(),
                 clinica.getSite(),
                 enderecoDaClinica(clinica),
-                distanciaKm,
-                perto,
-                favorita,
+                dados.distanciaKm(),
+                dados.perto(),
+                dados.favorita(),
+                dados.notaMedia(),
+                dados.totalAvaliacoes(),
                 veterinarios,
                 linkClinicas
         );
@@ -65,9 +75,7 @@ public class ClinicaMapper {
 
     public ClinicaLista clinicaToResponseLista(
             Clinica clinica,
-            Double distanciaKm,
-            boolean perto,
-            boolean favorita
+            DadosCalculados dados
     ) {
 
         Link linkClinica =
@@ -82,9 +90,11 @@ public class ClinicaMapper {
                 clinica.getNome(),
                 clinica.getImagemUrl(),
                 enderecoDaClinica(clinica),
-                distanciaKm,
-                perto,
-                favorita,
+                dados.distanciaKm(),
+                dados.perto(),
+                dados.favorita(),
+                dados.notaMedia(),
+                dados.totalAvaliacoes(),
                 linkClinica
         );
     }

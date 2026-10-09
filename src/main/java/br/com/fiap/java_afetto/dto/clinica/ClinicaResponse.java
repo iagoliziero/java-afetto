@@ -23,6 +23,10 @@ public record ClinicaResponse(
         // Favorita do usuário logado
         boolean favorita,
 
+        // Média das notas (1 a 5); null quando ainda não há avaliações
+        Double notaMedia,
+        long totalAvaliacoes,
+
         List<VeterinarioClinica> veterinarios,
 
         Link linkClinicas

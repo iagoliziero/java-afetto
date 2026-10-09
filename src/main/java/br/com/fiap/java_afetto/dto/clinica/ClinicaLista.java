@@ -18,6 +18,10 @@ public record ClinicaLista(
         // Favorita do usuário logado
         boolean favorita,
 
+        // Média das notas (1 a 5); null quando ainda não há avaliações
+        Double notaMedia,
+        long totalAvaliacoes,
+
         Link linkClinica
 
 ) {

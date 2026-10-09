@@ -7,6 +7,8 @@ import br.com.fiap.java_afetto.model.Usuario;
 import br.com.fiap.java_afetto.model.clinica.Clinica;
 import br.com.fiap.java_afetto.model.clinica.ClinicaFavorita;
 import br.com.fiap.java_afetto.model.endereco.Endereco;
+import br.com.fiap.java_afetto.repository.AvaliacaoRepository;
+import br.com.fiap.java_afetto.repository.AvaliacaoRepository.ResumoAvaliacao;
 import br.com.fiap.java_afetto.repository.ClinicaFavoritaRepository;
 import br.com.fiap.java_afetto.repository.ClinicaRepository;
 import br.com.fiap.java_afetto.repository.ClinicaVeterinarioRepository;
@@ -24,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -38,6 +41,7 @@ import java.util.stream.Collectors;
  * já existia no DistanciaService.
  *
  * Favoritas: cada usuário tem as suas (TBL_CLINICA_FAVORITA).
+ * Nota média e total de avaliações vêm de TBL_AVALIACAO.
  */
 @Service
 public class ClinicaService {
@@ -47,6 +51,7 @@ public class ClinicaService {
     private final ClinicaRepository clinicaRepository;
     private final ClinicaVeterinarioRepository clinicaVeterinarioRepository;
     private final ClinicaFavoritaRepository clinicaFavoritaRepository;
+    private final AvaliacaoRepository avaliacaoRepository;
     private final ClinicaMapper clinicaMapper;
     private final UsuarioLogadoService usuarioLogadoService;
     private final DistanciaService distanciaService;
@@ -56,6 +61,7 @@ public class ClinicaService {
             ClinicaRepository clinicaRepository,
             ClinicaVeterinarioRepository clinicaVeterinarioRepository,
             ClinicaFavoritaRepository clinicaFavoritaRepository,
+            AvaliacaoRepository avaliacaoRepository,
             ClinicaMapper clinicaMapper,
             UsuarioLogadoService usuarioLogadoService,
             DistanciaService distanciaService,
@@ -64,6 +70,7 @@ public class ClinicaService {
         this.clinicaRepository = clinicaRepository;
         this.clinicaVeterinarioRepository = clinicaVeterinarioRepository;
         this.clinicaFavoritaRepository = clinicaFavoritaRepository;
+        this.avaliacaoRepository = avaliacaoRepository;
         this.clinicaMapper = clinicaMapper;
         this.usuarioLogadoService = usuarioLogadoService;
         this.distanciaService = distanciaService;
@@ -81,6 +88,10 @@ public class ClinicaService {
         Usuario usuario = usuarioLogadoService.buscarUsuarioLogado();
         Referencia referencia = referenciaDoUsuario(usuario, latitude, longitude);
         Set<UUID> favoritas = idsDasFavoritas(usuario);
+        Map<UUID, ResumoAvaliacao> avaliacoes = avaliacaoRepository
+                .resumirPorClinica()
+                .stream()
+                .collect(Collectors.toMap(ResumoAvaliacao::getIdClinica, resumo -> resumo));
 
         List<Clinica> clinicas = (nome == null || nome.isBlank())
                 ? clinicaRepository.findAll()
@@ -90,15 +101,15 @@ public class ClinicaService {
         // e a página também são montadas aqui
         List<ClinicaLista> ordenadas = clinicas.stream()
                 .filter(clinica -> !apenasFavoritas || favoritas.contains(clinica.getId()))
-                .map(clinica -> {
-                    Double distancia = distanciaKm(clinica, referencia);
-                    return clinicaMapper.clinicaToResponseLista(
-                            clinica,
-                            distancia,
-                            perto(clinica, distancia, referencia),
-                            favoritas.contains(clinica.getId())
-                    );
-                })
+                .map(clinica -> clinicaMapper.clinicaToResponseLista(
+                        clinica,
+                        dadosCalculados(
+                                clinica,
+                                referencia,
+                                favoritas.contains(clinica.getId()),
+                                avaliacoes.get(clinica.getId())
+                        )
+                ))
                 .sorted(Comparator
                         .comparing(ClinicaLista::distanciaKm, Comparator.nullsLast(Comparator.<Double>naturalOrder()))
                         .thenComparing(ClinicaLista::perto, Comparator.reverseOrder())
@@ -121,13 +132,15 @@ public class ClinicaService {
 
         Usuario usuario = usuarioLogadoService.buscarUsuarioLogado();
         Referencia referencia = referenciaDoUsuario(usuario, latitude, longitude);
-        Double distancia = distanciaKm(clinica, referencia);
 
         return clinicaMapper.clinicaToResponse(
                 clinica,
-                distancia,
-                perto(clinica, distancia, referencia),
-                clinicaFavoritaRepository.existsByUsuario_IdAndClinica_Id(usuario.getId(), clinica.getId()),
+                dadosCalculados(
+                        clinica,
+                        referencia,
+                        clinicaFavoritaRepository.existsByUsuario_IdAndClinica_Id(usuario.getId(), clinica.getId()),
+                        avaliacaoRepository.resumirDaClinica(clinica.getId()).orElse(null)
+                ),
                 clinicaVeterinarioRepository.findByClinica_IdAndAtivoTrue(clinica.getId())
         );
     }
@@ -171,6 +184,24 @@ public class ClinicaService {
                                 "Clínica não encontrada"
                         )
                 );
+    }
+
+    private ClinicaMapper.DadosCalculados dadosCalculados(
+            Clinica clinica,
+            Referencia referencia,
+            boolean favorita,
+            ResumoAvaliacao avaliacoes
+    ) {
+
+        Double distancia = distanciaKm(clinica, referencia);
+
+        return new ClinicaMapper.DadosCalculados(
+                distancia,
+                perto(clinica, distancia, referencia),
+                favorita,
+                avaliacoes != null ? Math.round(avaliacoes.getNotaMedia() * 10.0) / 10.0 : null,
+                avaliacoes != null ? avaliacoes.getQuantidade() : 0
+        );
     }
 
     private Set<UUID> idsDasFavoritas(Usuario usuario) {
