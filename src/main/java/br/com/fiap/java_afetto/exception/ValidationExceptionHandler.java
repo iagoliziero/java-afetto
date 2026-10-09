@@ -45,4 +45,11 @@ public class ValidationExceptionHandler {
         return new ResponseEntity<>(erro, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(MuitasTentativasException.class)
+    public ResponseEntity<Map<String, String>> handleMuitasTentativasException(MuitasTentativasException ex) {
+        Map<String, String> erro = new HashMap<>();
+        erro.put("erro", ex.getMessage());
+        return new ResponseEntity<>(erro, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
 }

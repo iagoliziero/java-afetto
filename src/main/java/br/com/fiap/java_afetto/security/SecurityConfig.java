@@ -41,6 +41,9 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.POST, "/usuario")
                         .permitAll()
+                        // Esqueci a senha: quem chama ainda não consegue fazer login
+                        .requestMatchers(HttpMethod.POST, "/senha/redefinir")
+                        .permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/usuario/*/role")
                         .authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/usuario/**")
