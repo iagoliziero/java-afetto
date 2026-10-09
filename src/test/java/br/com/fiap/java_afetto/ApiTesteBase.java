@@ -6,9 +6,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Base dos testes de API: sobe a aplicação inteira numa porta livre (H2 em
@@ -91,6 +94,21 @@ abstract class ApiTesteBase {
         assertEquals(201, vacina.status(), vacina.corpo());
 
         return vacina.id();
+    }
+
+    /**
+     * Valor de um campo do item de uma lista, procurado a partir do id do item
+     * (ex.: "perto" da clínica X). Serve para listas em que o id vem primeiro.
+     */
+    protected static String campoDoItem(String corpo, String idItem, String campo) {
+
+        int inicio = corpo.indexOf("\"" + idItem + "\"");
+        assertTrue(inicio >= 0, "item " + idItem + " não está na resposta: " + corpo);
+
+        Matcher matcher = Pattern.compile("\"" + campo + "\"\\s*:\\s*([^,}\\s]+)").matcher(corpo);
+        assertTrue(matcher.find(inicio), "campo " + campo + " não encontrado: " + corpo);
+
+        return matcher.group(1);
     }
 
     record UsuarioTeste(ClienteApi cliente, String id, String email) {

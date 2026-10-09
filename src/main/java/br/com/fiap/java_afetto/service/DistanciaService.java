@@ -40,6 +40,12 @@ public class DistanciaService {
         );
     }
 
+    // Distância em km entre dois pontos (usado para achar as clínicas perto do tutor)
+    public double calcularDistancia(BigDecimal latitude1, BigDecimal longitude1,
+                                    BigDecimal latitude2, BigDecimal longitude2) {
+        return calcular(latitude1, longitude1, latitude2, longitude2);
+    }
+
     private double calcular(BigDecimal lat1, BigDecimal lon1,
                             BigDecimal lat2, BigDecimal lon2) {
         double dLat = Math.toRadians(lat2.subtract(lat1).doubleValue());

@@ -23,6 +23,12 @@ public class Clinica {
     private String telefone;
     @Column(name = "email")
     private String email;
+    @Column(name = "descricao", length = 500)
+    private String descricao;
+    @Column(name = "site")
+    private String site;
+    @Column(name = "imagem_url", length = 500)
+    private String imagemUrl;
 
     @ManyToOne
     @JoinColumn(name = "id_endereco", nullable = false)
@@ -82,6 +88,30 @@ public class Clinica {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getDescricao() {
+        return descricao;
+    }
+
+    public void setDescricao(String descricao) {
+        this.descricao = descricao;
+    }
+
+    public String getSite() {
+        return site;
+    }
+
+    public void setSite(String site) {
+        this.site = site;
+    }
+
+    public String getImagemUrl() {
+        return imagemUrl;
+    }
+
+    public void setImagemUrl(String imagemUrl) {
+        this.imagemUrl = imagemUrl;
     }
 
     public Endereco getEndereco() {
