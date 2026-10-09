@@ -39,6 +39,18 @@ public class Usuario {
     @Column(name = "role", nullable = false)
     private UserRole role;
 
+    // Finalizar cadastro
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_moradia", length = 20)
+    private TipoMoradia tipoMoradia;
+
+    @Column(name = "tela_protecao")
+    private Boolean telaProtecao;
+
+    // O que o tutor informou; a quantidade que vale é o maior entre isto e os pets cadastrados
+    @Column(name = "quantidade_pets")
+    private Integer quantidadePets;
+
     @OneToOne
     @JoinColumn(name = "id_endereco", nullable = true)
     private Endereco endereco;
@@ -135,6 +147,30 @@ public class Usuario {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public TipoMoradia getTipoMoradia() {
+        return tipoMoradia;
+    }
+
+    public void setTipoMoradia(TipoMoradia tipoMoradia) {
+        this.tipoMoradia = tipoMoradia;
+    }
+
+    public Boolean getTelaProtecao() {
+        return telaProtecao;
+    }
+
+    public void setTelaProtecao(Boolean telaProtecao) {
+        this.telaProtecao = telaProtecao;
+    }
+
+    public Integer getQuantidadePets() {
+        return quantidadePets;
+    }
+
+    public void setQuantidadePets(Integer quantidadePets) {
+        this.quantidadePets = quantidadePets;
     }
 
     public Endereco getEndereco() {

@@ -1,10 +1,18 @@
 package br.com.fiap.java_afetto;
 
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -20,6 +28,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 abstract class ApiTesteBase {
+
+    // CEPs que o serviço de CEP falso conhece, com as coordenadas que ele devolve
+    protected static final String CEP_PINHEIROS = "05422-001";
+    protected static final String CEP_SE = "01001-000";
+    private static final Map<String, String> COORDENADAS_FALSAS = Map.of(
+            "05422001", "{\"cep\":\"05422001\",\"lat\":\"-23.5660000\",\"lng\":\"-46.6845000\"}",
+            "01001000", "{\"cep\":\"01001000\",\"lat\":\"-23.5502784\",\"lng\":\"-46.6342179\"}"
+    );
+
+    // Serviço de CEP falso no lugar da AwesomeAPI: os testes não dependem da internet
+    private static final HttpServer CEP_FALSO = iniciarCepFalso();
+
+    @DynamicPropertySource
+    static void usarCepFalso(DynamicPropertyRegistry registry) {
+        registry.add("afetto.geolocalizacao.url",
+                () -> "http://localhost:" + CEP_FALSO.getAddress().getPort() + "/json/{cep}");
+    }
+
+    private static HttpServer iniciarCepFalso() {
+        try {
+            HttpServer servidor = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            servidor.createContext("/json/", troca -> {
+                String cep = troca.getRequestURI().getPath().substring("/json/".length());
+                String json = COORDENADAS_FALSAS.getOrDefault(cep, "{\"code\":\"not_found\"}");
+                byte[] corpo = json.getBytes(StandardCharsets.UTF_8);
+                troca.getResponseHeaders().add("Content-Type", "application/json");
+                troca.sendResponseHeaders(COORDENADAS_FALSAS.containsKey(cep) ? 200 : 404, corpo.length);
+                troca.getResponseBody().write(corpo);
+                troca.close();
+            });
+            servidor.start();
+            return servidor;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     @Autowired
     private Environment environment;

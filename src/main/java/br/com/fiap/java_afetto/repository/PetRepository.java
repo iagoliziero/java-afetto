@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface PetRepository extends JpaRepository<Pet, UUID> {
 
     Optional<Pet> findByIdAndUsuario_Id(UUID id, UUID idUsuario);
+
+    long countByUsuario_Id(UUID idUsuario);
 }
