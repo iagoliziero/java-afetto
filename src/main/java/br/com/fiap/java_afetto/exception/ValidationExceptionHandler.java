@@ -38,4 +38,11 @@ public class ValidationExceptionHandler {
         return new ResponseEntity<>(erro, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(ConflitoException.class)
+    public ResponseEntity<Map<String, String>> handleConflitoException(ConflitoException ex) {
+        Map<String, String> erro = new HashMap<>();
+        erro.put("erro", ex.getMessage());
+        return new ResponseEntity<>(erro, HttpStatus.CONFLICT);
+    }
+
 }

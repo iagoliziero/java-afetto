@@ -1,16 +1,22 @@
 package br.com.fiap.java_afetto.mapper;
 
 import br.com.fiap.java_afetto.controller.ClinicaController;
+import br.com.fiap.java_afetto.dto.agendamento.DiaDisponivel;
+import br.com.fiap.java_afetto.dto.agendamento.HorariosClinicaResponse;
 import br.com.fiap.java_afetto.dto.clinica.ClinicaLista;
 import br.com.fiap.java_afetto.dto.clinica.ClinicaResponse;
 import br.com.fiap.java_afetto.dto.clinica.EnderecoClinica;
+import br.com.fiap.java_afetto.dto.clinica.ExpedienteClinica;
 import br.com.fiap.java_afetto.dto.clinica.VeterinarioClinica;
 import br.com.fiap.java_afetto.model.clinica.Clinica;
 import br.com.fiap.java_afetto.model.clinica.ClinicaVeterinario;
+import br.com.fiap.java_afetto.model.clinica.Expediente;
 import br.com.fiap.java_afetto.model.endereco.Endereco;
+import br.com.fiap.java_afetto.util.FormatoData;
 import org.springframework.hateoas.Link;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
@@ -36,7 +42,8 @@ public class ClinicaMapper {
     public ClinicaResponse clinicaToResponse(
             Clinica clinica,
             DadosCalculados dados,
-            List<ClinicaVeterinario> equipe
+            List<ClinicaVeterinario> equipe,
+            List<Expediente> expediente
     ) {
 
         Link linkClinicas =
@@ -51,6 +58,15 @@ public class ClinicaMapper {
                         vinculo.getVeterinario().getNome(),
                         vinculo.getVeterinario().getEspecialidade(),
                         vinculo.getTurno()
+                ))
+                .toList();
+
+        List<ExpedienteClinica> funcionamento = expediente.stream()
+                .sorted(Comparator.comparing(Expediente::getDiaSemana))
+                .map(dia -> new ExpedienteClinica(
+                        FormatoData.diaDaSemana(dia.getDiaSemana()),
+                        FormatoData.hora(dia.getHoraAbertura()),
+                        FormatoData.hora(dia.getHoraFechamento())
                 ))
                 .toList();
 
@@ -69,6 +85,7 @@ public class ClinicaMapper {
                 dados.notaMedia(),
                 dados.totalAvaliacoes(),
                 veterinarios,
+                funcionamento,
                 linkClinicas
         );
     }
@@ -95,6 +112,28 @@ public class ClinicaMapper {
                 dados.favorita(),
                 dados.notaMedia(),
                 dados.totalAvaliacoes(),
+                linkClinica
+        );
+    }
+
+    public HorariosClinicaResponse horariosToResponse(
+            Clinica clinica,
+            int duracaoMinutos,
+            List<DiaDisponivel> dias
+    ) {
+
+        Link linkClinica =
+                linkTo(
+                        methodOn(ClinicaController.class)
+                                .readClinica(clinica.getId(), null, null)
+                )
+                        .withRel("Detalhes da clínica");
+
+        return new HorariosClinicaResponse(
+                clinica.getId(),
+                clinica.getNome(),
+                duracaoMinutos,
+                dias,
                 linkClinica
         );
     }

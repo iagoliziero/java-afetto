@@ -15,5 +15,7 @@ public interface VacinaRepository extends JpaRepository<Vacina, UUID> {
 
     List<Vacina> findByHistorico_Id(UUID idHistorico);
 
+    List<Vacina> findByPet_Usuario_Id(UUID idUsuario);
+
     void deleteByPet_Id(UUID idPet);
 }

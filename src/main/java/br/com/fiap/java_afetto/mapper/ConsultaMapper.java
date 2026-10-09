@@ -45,6 +45,8 @@ public class ConsultaMapper {
                 historico.getObservacoes(),
                 status,
                 historico.getPet().getId(),
+                historico.getClinica() != null ? historico.getClinica().getId() : null,
+                historico.getClinica() != null ? historico.getClinica().getNome() : null,
                 linkConsultas,
                 linkPet
         );
@@ -74,6 +76,8 @@ public class ConsultaMapper {
                 historico.getHora(),
                 status,
                 historico.getPet().getId(),
+                historico.getClinica() != null ? historico.getClinica().getId() : null,
+                historico.getClinica() != null ? historico.getClinica().getNome() : null,
                 linkConsulta,
                 linkPet
         );

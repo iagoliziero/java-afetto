@@ -1,5 +1,6 @@
 package br.com.fiap.java_afetto.service;
 
+import br.com.fiap.java_afetto.dto.agendamento.AgendamentoRequest;
 import br.com.fiap.java_afetto.dto.consulta.ConsultaLista;
 import br.com.fiap.java_afetto.dto.consulta.ConsultaRequest;
 import br.com.fiap.java_afetto.dto.consulta.ConsultaResponse;
@@ -10,7 +11,9 @@ import br.com.fiap.java_afetto.model.StatusHistorico;
 import br.com.fiap.java_afetto.model.TipoEvento;
 import br.com.fiap.java_afetto.model.Usuario;
 import br.com.fiap.java_afetto.model.Vacina;
+import br.com.fiap.java_afetto.model.clinica.Clinica;
 import br.com.fiap.java_afetto.model.pet.Pet;
+import br.com.fiap.java_afetto.repository.ClinicaRepository;
 import br.com.fiap.java_afetto.repository.HistoricoRepository;
 import br.com.fiap.java_afetto.repository.VacinaRepository;
 import br.com.fiap.java_afetto.security.UsuarioLogadoService;
@@ -22,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -30,6 +36,9 @@ import java.util.UUID;
  * Status: data/hora no futuro = AGENDADO; no passado = CONCLUIDO;
  * CANCELADO só pelo PATCH /consulta/{id}/cancelar. Como "agendada" vira
  * "realizada" com o passar do tempo, o status devolvido é sempre recalculado.
+ *
+ * Consulta agendada numa clínica parceira (POST /clinica/{id}/agendamento)
+ * guarda a clínica e só aceita horários livres da agenda dela.
  */
 @Service
 public class ConsultaService {
@@ -38,6 +47,8 @@ public class ConsultaService {
     private final VacinaRepository vacinaRepository;
     private final ConsultaMapper consultaMapper;
     private final UsuarioLogadoService usuarioLogadoService;
+    private final ClinicaRepository clinicaRepository;
+    private final AgendaService agendaService;
     private final Clock relogio;
 
     public ConsultaService(
@@ -45,12 +56,16 @@ public class ConsultaService {
             VacinaRepository vacinaRepository,
             ConsultaMapper consultaMapper,
             UsuarioLogadoService usuarioLogadoService,
+            ClinicaRepository clinicaRepository,
+            AgendaService agendaService,
             Clock relogio
     ) {
         this.historicoRepository = historicoRepository;
         this.vacinaRepository = vacinaRepository;
         this.consultaMapper = consultaMapper;
         this.usuarioLogadoService = usuarioLogadoService;
+        this.clinicaRepository = clinicaRepository;
+        this.agendaService = agendaService;
         this.relogio = relogio;
     }
 
@@ -62,6 +77,41 @@ public class ConsultaService {
 
         preencher(historico, request, pet);
         historico.setStatus(statusPelaData(historico));
+
+        return paraResponse(historicoRepository.save(historico));
+    }
+
+    // Agendamento numa clínica parceira: nasce AGENDADA e vai para o histórico do pet
+    public ConsultaResponse agendarNaClinica(UUID idClinica, AgendamentoRequest request) {
+
+        Pet pet = usuarioLogadoService.buscarPetDoUsuario(request.idPet());
+
+        Clinica clinica = clinicaRepository
+                .findById(idClinica)
+                .orElseThrow(() ->
+                        new EntityNotFoundException(
+                                "Clínica não encontrada"
+                        )
+                );
+
+        LocalTime hora = semSegundos(request.hora());
+
+        agendaService.validarHorario(clinica, request.data(), hora, null);
+
+        Historico historico = new Historico();
+
+        historico.setTipoEvento(TipoEvento.CONSULTA);
+        historico.setDescricao(
+                request.descricao() == null || request.descricao().isBlank()
+                        ? "Consulta na " + clinica.getNome()
+                        : request.descricao().trim()
+        );
+        historico.setData(request.data());
+        historico.setHora(hora);
+        historico.setObservacoes(request.observacoes());
+        historico.setPet(pet);
+        historico.setClinica(clinica);
+        historico.setStatus(StatusHistorico.AGENDADO);
 
         return paraResponse(historicoRepository.save(historico));
     }
@@ -104,6 +154,17 @@ public class ConsultaService {
         }
 
         Pet pet = usuarioLogadoService.buscarPetDoUsuario(request.idPet());
+
+        // Remarcar um agendamento de clínica: o novo horário precisa estar livre na agenda dela
+        if (historico.getClinica() != null) {
+            LocalTime novaHora = semSegundos(request.hora());
+            boolean mudouHorario = !Objects.equals(request.data(), historico.getData())
+                    || !Objects.equals(novaHora, historico.getHora());
+
+            if (mudouHorario) {
+                agendaService.validarHorario(historico.getClinica(), request.data(), novaHora, historico.getId());
+            }
+        }
 
         preencher(historico, request, pet);
         historico.setStatus(statusPelaData(historico));
@@ -166,10 +227,15 @@ public class ConsultaService {
         );
         historico.setDescricao(request.descricao());
         historico.setData(request.data());
-        historico.setHora(request.hora());
+        historico.setHora(semSegundos(request.hora()));
         historico.setNomeVeterinario(request.nomeVeterinario());
         historico.setObservacoes(request.observacoes());
         historico.setPet(pet);
+    }
+
+    // 09:30:45 vira 09:30 (os horários da agenda são de 30 em 30 minutos)
+    private LocalTime semSegundos(LocalTime hora) {
+        return hora != null ? hora.truncatedTo(ChronoUnit.MINUTES) : null;
     }
 
     // Sem horário, a consulta conta como agendada até o fim do dia
@@ -184,7 +250,8 @@ public class ConsultaService {
         return noFuturo ? StatusHistorico.AGENDADO : StatusHistorico.CONCLUIDO;
     }
 
-    private StatusHistorico statusAtual(Historico historico) {
+    // Status que vale agora (o calendário também usa)
+    public StatusHistorico statusAtual(Historico historico) {
 
         if (historico.getStatus() == StatusHistorico.CANCELADO || historico.getData() == null) {
             return historico.getStatus();

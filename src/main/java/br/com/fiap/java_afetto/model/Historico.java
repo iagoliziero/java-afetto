@@ -1,5 +1,6 @@
 package br.com.fiap.java_afetto.model;
 
+import br.com.fiap.java_afetto.model.clinica.Clinica;
 import br.com.fiap.java_afetto.model.clinica.Veterinario;
 import br.com.fiap.java_afetto.model.pet.Pet;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -41,6 +42,10 @@ public class Historico {
     @ManyToOne
     @JoinColumn(name = "id_veterinario")
     private Veterinario veterinario;
+    // Preenchida quando a consulta foi agendada pelo app numa clínica parceira
+    @ManyToOne
+    @JoinColumn(name = "id_clinica")
+    private Clinica clinica;
     @JsonIgnore
     @OneToMany(mappedBy = "historico")
     private List<Vacina> vacinas;
@@ -98,6 +103,10 @@ public class Historico {
     public String getNomeVeterinario() { return nomeVeterinario; }
 
     public void setNomeVeterinario(String nomeVeterinario) { this.nomeVeterinario = nomeVeterinario; }
+
+    public Clinica getClinica() { return clinica; }
+
+    public void setClinica(Clinica clinica) { this.clinica = clinica; }
 
     public List<Vacina> getVacinas() { return vacinas; }
 

@@ -18,6 +18,10 @@ public record ConsultaLista(
         StatusHistorico status,
         UUID idPet,
 
+        // Preenchidos quando a consulta foi agendada numa clínica parceira
+        UUID idClinica,
+        String nomeClinica,
+
         Link linkConsulta,
         Link linkPet
 

@@ -29,6 +29,9 @@ public record ClinicaResponse(
 
         List<VeterinarioClinica> veterinarios,
 
+        // Horário de funcionamento, de segunda a domingo (só os dias em que abre)
+        List<ExpedienteClinica> expediente,
+
         Link linkClinicas
 
 ) {

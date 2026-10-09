@@ -1,5 +1,6 @@
 package br.com.fiap.java_afetto.service;
 
+import br.com.fiap.java_afetto.dto.agendamento.HorariosClinicaResponse;
 import br.com.fiap.java_afetto.dto.clinica.ClinicaLista;
 import br.com.fiap.java_afetto.dto.clinica.ClinicaResponse;
 import br.com.fiap.java_afetto.mapper.ClinicaMapper;
@@ -12,6 +13,7 @@ import br.com.fiap.java_afetto.repository.AvaliacaoRepository.ResumoAvaliacao;
 import br.com.fiap.java_afetto.repository.ClinicaFavoritaRepository;
 import br.com.fiap.java_afetto.repository.ClinicaRepository;
 import br.com.fiap.java_afetto.repository.ClinicaVeterinarioRepository;
+import br.com.fiap.java_afetto.repository.ExpedienteRepository;
 import br.com.fiap.java_afetto.security.UsuarioLogadoService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -52,6 +55,8 @@ public class ClinicaService {
     private final ClinicaVeterinarioRepository clinicaVeterinarioRepository;
     private final ClinicaFavoritaRepository clinicaFavoritaRepository;
     private final AvaliacaoRepository avaliacaoRepository;
+    private final ExpedienteRepository expedienteRepository;
+    private final AgendaService agendaService;
     private final ClinicaMapper clinicaMapper;
     private final UsuarioLogadoService usuarioLogadoService;
     private final DistanciaService distanciaService;
@@ -62,6 +67,8 @@ public class ClinicaService {
             ClinicaVeterinarioRepository clinicaVeterinarioRepository,
             ClinicaFavoritaRepository clinicaFavoritaRepository,
             AvaliacaoRepository avaliacaoRepository,
+            ExpedienteRepository expedienteRepository,
+            AgendaService agendaService,
             ClinicaMapper clinicaMapper,
             UsuarioLogadoService usuarioLogadoService,
             DistanciaService distanciaService,
@@ -71,6 +78,8 @@ public class ClinicaService {
         this.clinicaVeterinarioRepository = clinicaVeterinarioRepository;
         this.clinicaFavoritaRepository = clinicaFavoritaRepository;
         this.avaliacaoRepository = avaliacaoRepository;
+        this.expedienteRepository = expedienteRepository;
+        this.agendaService = agendaService;
         this.clinicaMapper = clinicaMapper;
         this.usuarioLogadoService = usuarioLogadoService;
         this.distanciaService = distanciaService;
@@ -141,7 +150,20 @@ public class ClinicaService {
                         clinicaFavoritaRepository.existsByUsuario_IdAndClinica_Id(usuario.getId(), clinica.getId()),
                         avaliacaoRepository.resumirDaClinica(clinica.getId()).orElse(null)
                 ),
-                clinicaVeterinarioRepository.findByClinica_IdAndAtivoTrue(clinica.getId())
+                clinicaVeterinarioRepository.findByClinica_IdAndAtivoTrue(clinica.getId()),
+                expedienteRepository.findByClinica_Id(clinica.getId())
+        );
+    }
+
+    // Horários livres para agendar nos próximos dias (padrão: 7 dias a partir de hoje)
+    public HorariosClinicaResponse horarios(UUID idClinica, LocalDate inicio, int dias) {
+
+        Clinica clinica = buscarClinica(idClinica);
+
+        return clinicaMapper.horariosToResponse(
+                clinica,
+                AgendaService.DURACAO_MINUTOS,
+                agendaService.horariosLivres(clinica, inicio, dias)
         );
     }
 
