@@ -1,17 +1,23 @@
 package br.com.fiap.java_afetto.service;
 
+import br.com.fiap.java_afetto.dto.senha.AlterarSenhaRequest;
 import br.com.fiap.java_afetto.dto.senha.RedefinirSenhaRequest;
 import br.com.fiap.java_afetto.exception.MuitasTentativasException;
 import br.com.fiap.java_afetto.exception.RegraNegocioException;
 import br.com.fiap.java_afetto.model.Usuario;
 import br.com.fiap.java_afetto.repository.UsuarioRepository;
 import br.com.fiap.java_afetto.security.TentativasRedefinicaoSenha;
+import br.com.fiap.java_afetto.security.UsuarioLogadoService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
 
 /**
+ * Senha do tutor.
+ *
+ * Trocar (logado): só com a senha atual certa.
+ *
  * "Esqueci a senha" sem e-mail: o tutor confirma e-mail, CPF e data de
  * nascimento do cadastro e define a senha nova.
  *
@@ -25,18 +31,36 @@ public class SenhaService {
     private static final String DADOS_NAO_CONFEREM =
             "Os dados não conferem. Confira e-mail, CPF e data de nascimento";
 
+    private static final String SENHA_ATUAL_ERRADA = "A senha atual está incorreta";
+
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final TentativasRedefinicaoSenha tentativas;
+    private final UsuarioLogadoService usuarioLogadoService;
 
     public SenhaService(
             UsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
-            TentativasRedefinicaoSenha tentativas
+            TentativasRedefinicaoSenha tentativas,
+            UsuarioLogadoService usuarioLogadoService
     ) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.tentativas = tentativas;
+        this.usuarioLogadoService = usuarioLogadoService;
+    }
+
+    public void alterar(AlterarSenhaRequest request) {
+
+        Usuario usuario = usuarioLogadoService.buscarUsuarioLogado();
+
+        if (!passwordEncoder.matches(request.senhaAtual(), usuario.getSenha())) {
+            throw new RegraNegocioException(SENHA_ATUAL_ERRADA);
+        }
+
+        usuario.setSenha(passwordEncoder.encode(request.novaSenha()));
+
+        usuarioRepository.save(usuario);
     }
 
     public void redefinir(RedefinirSenhaRequest request) {

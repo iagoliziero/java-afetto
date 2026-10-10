@@ -53,7 +53,7 @@ public class PetController {
 
 
     @GetMapping
-    @Operation(summary = "Exibe os pet")
+    @Operation(summary = "Lista os pets do usuário logado (o ADMIN vê todos)")
     public ResponseEntity<Page<PetLista>> readPets(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size

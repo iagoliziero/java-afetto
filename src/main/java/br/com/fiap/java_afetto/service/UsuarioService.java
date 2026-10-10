@@ -1,5 +1,6 @@
 package br.com.fiap.java_afetto.service;
 
+import br.com.fiap.java_afetto.dto.usuario.UsuarioAtualizacaoRequest;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioLista;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioRequest;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioResponse;
@@ -105,9 +106,10 @@ public class UsuarioService {
                 .map(usuarioMapper::usuarioToResponseLista);
     }
 
+    // A senha não muda aqui: só em PUT /usuario/me/senha (conferindo a atual)
     public UsuarioResponse update(
             UUID id,
-            UsuarioRequest request
+            UsuarioAtualizacaoRequest request
     ) {
 
         Usuario usuario = usuarioRepository
@@ -123,10 +125,6 @@ public class UsuarioService {
         usuario.setEmail(request.email());
         usuario.setTelefone(request.telefone());
         usuario.setDataNascimento(request.dataNascimento());
-
-        usuario.setSenha(
-                passwordEncoder.encode(request.senha())
-        );
 
         if (request.idEndereco() != null) {
 

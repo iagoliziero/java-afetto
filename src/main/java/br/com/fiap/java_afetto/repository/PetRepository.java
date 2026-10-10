@@ -1,6 +1,8 @@
 package br.com.fiap.java_afetto.repository;
 
 import br.com.fiap.java_afetto.model.pet.Pet;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -11,4 +13,6 @@ public interface PetRepository extends JpaRepository<Pet, UUID> {
     Optional<Pet> findByIdAndUsuario_Id(UUID id, UUID idUsuario);
 
     long countByUsuario_Id(UUID idUsuario);
+
+    Page<Pet> findByUsuario_Id(UUID idUsuario, Pageable pageable);
 }

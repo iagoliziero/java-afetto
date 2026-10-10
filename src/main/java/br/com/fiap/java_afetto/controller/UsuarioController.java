@@ -1,11 +1,14 @@
 package br.com.fiap.java_afetto.controller;
 
 import br.com.fiap.java_afetto.dto.endereco.EnderecoLista;
+import br.com.fiap.java_afetto.dto.senha.AlterarSenhaRequest;
+import br.com.fiap.java_afetto.dto.usuario.UsuarioAtualizacaoRequest;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioLista;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioRequest;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioResponse;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioRoleRequest;
 import br.com.fiap.java_afetto.service.DistanciaService;
+import br.com.fiap.java_afetto.service.SenhaService;
 import br.com.fiap.java_afetto.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,11 +35,13 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final DistanciaService distanciaService;
+    private final SenhaService senhaService;
 
 
-    public UsuarioController(UsuarioService usuarioService, DistanciaService distanciaService) {
+    public UsuarioController(UsuarioService usuarioService, DistanciaService distanciaService, SenhaService senhaService) {
         this.usuarioService = usuarioService;
         this.distanciaService = distanciaService;
+        this.senhaService = senhaService;
     }
 
     @Operation(summary = "Cria um usuario")
@@ -49,6 +54,13 @@ public class UsuarioController {
     @GetMapping("/me")
     public ResponseEntity<UsuarioResponse> readUsuarioLogado() {
         return ResponseEntity.ok(usuarioService.readLogado());
+    }
+
+    @Operation(summary = "Troca a senha de quem está logado (precisa da senha atual; errada → 400)")
+    @PutMapping("/me/senha")
+    public ResponseEntity<Void> alterarSenha(@Valid @RequestBody AlterarSenhaRequest request) {
+        senhaService.alterar(request);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Busca um usuário por id")
@@ -81,11 +93,11 @@ public class UsuarioController {
         return new ResponseEntity<>(usuario, HttpStatus.OK);
     }
 
-    @Operation(summary = "Atualiza o usuário")
+    @Operation(summary = "Atualiza os dados do usuário (a senha não muda aqui: use PUT /usuario/me/senha)")
     @PutMapping("/{id}")
     public ResponseEntity<UsuarioResponse> updateUsuario(
             @PathVariable UUID id,
-            @Valid @RequestBody UsuarioRequest request) {
+            @Valid @RequestBody UsuarioAtualizacaoRequest request) {
         return ResponseEntity.ok(usuarioService.update(id, request));
     }
 

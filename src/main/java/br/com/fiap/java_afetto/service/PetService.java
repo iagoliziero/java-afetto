@@ -13,6 +13,8 @@ import br.com.fiap.java_afetto.repository.PetRepository;
 import br.com.fiap.java_afetto.repository.RemedioRepository;
 import br.com.fiap.java_afetto.repository.UsuarioRepository;
 import br.com.fiap.java_afetto.repository.VacinaRepository;
+import br.com.fiap.java_afetto.model.UserRole;
+import br.com.fiap.java_afetto.security.UsuarioLogadoService;
 import jakarta.persistence.EntityNotFoundException;
 
 import org.springframework.data.domain.Page;
@@ -32,6 +34,7 @@ public class PetService {
     private final VacinaRepository vacinaRepository;
     private final RemedioRepository remedioRepository;
     private final HistoricoRepository historicoRepository;
+    private final UsuarioLogadoService usuarioLogadoService;
 
     public PetService(
             PetRepository petRepository,
@@ -39,7 +42,8 @@ public class PetService {
             UsuarioRepository usuarioRepository,
             VacinaRepository vacinaRepository,
             RemedioRepository remedioRepository,
-            HistoricoRepository historicoRepository
+            HistoricoRepository historicoRepository,
+            UsuarioLogadoService usuarioLogadoService
     ) {
         this.petRepository = petRepository;
         this.petMapper = petMapper;
@@ -47,6 +51,7 @@ public class PetService {
         this.vacinaRepository = vacinaRepository;
         this.remedioRepository = remedioRepository;
         this.historicoRepository = historicoRepository;
+        this.usuarioLogadoService = usuarioLogadoService;
     }
 
     public PetResponse create(PetRequest petRequest) {
@@ -92,11 +97,16 @@ public class PetService {
         return petMapper.petToResponse(pet);
     }
 
+    // Só os pets do usuário logado (antes vinham os de todas as contas); o ADMIN continua vendo todos
     public Page<PetLista> read(Pageable pageable) {
 
-        return petRepository
-                .findAll(pageable)
-                .map(petMapper::petToResponseLista);
+        Usuario usuario = usuarioLogadoService.buscarUsuarioLogado();
+
+        Page<Pet> pets = usuario.getRole() == UserRole.ADMIN
+                ? petRepository.findAll(pageable)
+                : petRepository.findByUsuario_Id(usuario.getId(), pageable);
+
+        return pets.map(petMapper::petToResponseLista);
     }
 
     public PetResponse update(

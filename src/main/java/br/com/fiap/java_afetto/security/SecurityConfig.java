@@ -11,6 +11,11 @@ import org.springframework.security.config.annotation.web.configurers.LogoutConf
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -20,6 +25,9 @@ public class SecurityConfig {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
+
+                // App aberto no navegador (Expo web em localhost) chamando a API
+                .cors(cors -> cors.configurationSource(origensLiberadas()))
 
                 //Verificação pra ver se o flyway foi professor
                 .headers(headers -> headers
@@ -68,6 +76,26 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    /*
+     * CORS: o navegador só deixa uma página (ex.: o app em http://localhost:8082)
+     * chamar a API em outra porta se a API autorizar. Liberado só para
+     * localhost, em qualquer porta, com o cookie de sessão. O app no celular
+     * não passa por isso (não é navegador).
+     */
+    private CorsConfigurationSource origensLiberadas() {
+
+        CorsConfiguration configuracao = new CorsConfiguration();
+        configuracao.setAllowedOriginPatterns(List.of("http://localhost:[*]", "http://127.0.0.1:[*]"));
+        configuracao.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuracao.setAllowedHeaders(List.of("*"));
+        configuracao.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource origens = new UrlBasedCorsConfigurationSource();
+        origens.registerCorsConfiguration("/**", configuracao);
+
+        return origens;
     }
 
     @Bean
