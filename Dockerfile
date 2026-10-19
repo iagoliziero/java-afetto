@@ -1,6 +1,7 @@
 # ============================================
 # Afetto — Dockerfile
 # FIAP 2026 — DevOps Tools & Cloud Computing
+# Também é o que o Render usa (serviço Web com runtime Docker).
 # ============================================
 
 # --- Stage 1: Build ---
@@ -8,13 +9,16 @@
 
     LABEL maintainer="Afetto Team"
     LABEL version="1.0"
-    LABEL description="API REST Afetto — Spring Boot + Oracle"
+    LABEL description="API REST Afetto — Spring Boot + H2"
     
     WORKDIR /app
     
     COPY . .
     
-    RUN gradle clean build -x test
+    # Só o jar executável (bootJar). O `build` gera também o "-plain.jar" (sem
+    # as dependências); com dois jars, o COPY *.jar do estágio 2 depende de qual
+    # deles o Docker copia. Gerando só o bootJar, vai sempre o executável.
+    RUN gradle clean bootJar --no-daemon
     
     # --- Stage 2: Runtime ---
     FROM eclipse-temurin:21-jre-jammy
@@ -25,6 +29,8 @@
     
     COPY --from=build /app/build/libs/*.jar app.jar
     
+    # Local: 8080. No Render, a API escuta na PORT que ele define
+    # (server.port=${PORT:8080} no application.properties).
     EXPOSE 8080
     
     # Criar usuário sem privilégios administrativos
@@ -33,4 +39,7 @@
     # Rodar como usuário sem root
     USER afettouser
     
-    ENTRYPOINT ["java", "-jar", "app.jar"]
+    # Instância pequena (Render gratuito: 512 MB): o Java usa até 75% da memória
+    # do contêiner (o padrão é 25%), com o coletor mais leve, e sobe mais rápido
+    # (TieredStopAtLevel=1) — o que encurta a espera quando o Render "acorda" a API.
+    ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-jar", "app.jar"]
