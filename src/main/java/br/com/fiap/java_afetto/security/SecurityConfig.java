@@ -3,6 +3,7 @@ package br.com.fiap.java_afetto.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.configurers.LogoutConf
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,6 +41,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/login",
+                                // A página de erro do Spring: sem isto, qualquer erro de
+                                // quem não está logado (ex.: no cadastro) virava 403
+                                "/error",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/css/**",
@@ -52,8 +57,13 @@ public class SecurityConfig {
                         // Esqueci a senha: quem chama ainda não consegue fazer login
                         .requestMatchers(HttpMethod.POST, "/senha/redefinir")
                         .permitAll()
+                        // Trocar role e listar todas as contas: só ADMIN (antes qualquer
+                        // usuário logado conseguia se promover a ADMIN). A primeira conta
+                        // ADMIN vem das variáveis ADMIN_EMAIL e ADMIN_SENHA (ContaAdminInicial).
                         .requestMatchers(HttpMethod.PATCH, "/usuario/*/role")
-                        .authenticated()
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/usuario")
+                        .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/usuario/**")
                         .hasRole("ADMIN")
 
@@ -71,6 +81,13 @@ public class SecurityConfig {
                 )
 
                 .formLogin(AbstractHttpConfigurer::disable)
+
+                // Sem login (ou sessão que expirou, ex.: a API reiniciou): 401, não
+                // 403. O app usa o 401 para voltar à tela de login; 403 fica para
+                // "logado, mas sem permissão" (ex.: USER chamando rota de ADMIN).
+                .exceptionHandling(erros -> erros
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                )
 
                 .logout(LogoutConfigurer::permitAll
                 );

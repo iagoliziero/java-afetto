@@ -3,6 +3,7 @@ package br.com.fiap.java_afetto.exception;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -43,6 +44,16 @@ public class ValidationExceptionHandler {
         Map<String, String> erro = new HashMap<>();
         erro.put("erro", ex.getMessage());
         return new ResponseEntity<>(erro, HttpStatus.CONFLICT);
+    }
+
+    // Login com e-mail ou senha errados (POST /login): 401 com mensagem. Antes a
+    // exceção não era tratada e chegava como 403 sem corpo. A mesma mensagem
+    // para e-mail que não existe e senha errada, para não revelar quem tem conta.
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, String>> handleAuthenticationException(AuthenticationException ex) {
+        Map<String, String> erro = new HashMap<>();
+        erro.put("erro", "E-mail ou senha incorretos");
+        return new ResponseEntity<>(erro, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(MuitasTentativasException.class)

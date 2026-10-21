@@ -17,5 +17,8 @@ public interface VacinaRepository extends JpaRepository<Vacina, UUID> {
 
     List<Vacina> findByPet_Usuario_Id(UUID idUsuario);
 
+    // GET /vacina sem ?idPet=: as vacinas de todos os pets da conta
+    Page<Vacina> findByPet_Usuario_Id(UUID idUsuario, Pageable pageable);
+
     void deleteByPet_Id(UUID idPet);
 }

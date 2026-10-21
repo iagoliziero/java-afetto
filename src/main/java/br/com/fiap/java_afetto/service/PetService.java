@@ -66,35 +66,21 @@ public class PetService {
         pet.setDataNasc(petRequest.dataNasc());
         pet.setDescricao(petRequest.descricao());
 
-        if (petRequest.idUsuario() != null) {
-
-            Usuario usuario = usuarioRepository
-                    .findById(petRequest.idUsuario())
-                    .orElseThrow(() ->
-                            new EntityNotFoundException(
-                                    "Usuário não encontrado"
-                            )
-                    );
-
-            pet.setUsuario(usuario);
-        }
+        // O pet é sempre de quem está logado (antes valia o idUsuario do corpo,
+        // e dava para criar pet na conta de outra pessoa — ou sem dono)
+        pet.setUsuario(donoDoPet(petRequest.idUsuario()));
 
         return petMapper.petToResponse(
                 petRepository.save(pet)
         );
     }
 
+    // Pet de outra conta responde 404, igual a um id que não existe
     public PetResponse read(UUID id) {
 
-        Pet pet = petRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Pet não encontrado"
-                        )
-                );
-
-        return petMapper.petToResponse(pet);
+        return petMapper.petToResponse(
+                usuarioLogadoService.buscarPetPermitido(id)
+        );
     }
 
     // Só os pets do usuário logado (antes vinham os de todas as contas); o ADMIN continua vendo todos
@@ -114,13 +100,7 @@ public class PetService {
             PetRequest request
     ) {
 
-        Pet pet = petRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Pet não encontrado"
-                        )
-                );
+        Pet pet = usuarioLogadoService.buscarPetPermitido(id);
 
         pet.setNome(request.nome());
         pet.setEspecie(request.especie());
@@ -130,17 +110,9 @@ public class PetService {
         pet.setDataNasc(request.dataNasc());
         pet.setDescricao(request.descricao());
 
+        // Sem idUsuario, o pet continua com o mesmo dono; só o ADMIN passa o pet para outra conta
         if (request.idUsuario() != null) {
-
-            Usuario usuario = usuarioRepository
-                    .findById(request.idUsuario())
-                    .orElseThrow(() ->
-                            new EntityNotFoundException(
-                                    "Usuário não encontrado"
-                            )
-                    );
-
-            pet.setUsuario(usuario);
+            pet.setUsuario(donoDoPet(request.idUsuario()));
         }
 
         return petMapper.petToResponse(
@@ -151,11 +123,7 @@ public class PetService {
     @Transactional
     public void delete(UUID id) {
 
-        if (!petRepository.existsById(id)) {
-            throw new EntityNotFoundException(
-                    "Pet não encontrado"
-            );
-        }
+        usuarioLogadoService.buscarPetPermitido(id);
 
         // Os cuidados do pet saem junto com ele: sem isso o banco recusa
         // apagar um pet que tem vacina, remédio ou consulta (chave estrangeira).
@@ -169,13 +137,7 @@ public class PetService {
 
     public PetStatusVacinacaoResponse statusVacinacao(UUID id) {
 
-        Pet pet = petRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Pet não encontrado"
-                        )
-                );
+        Pet pet = usuarioLogadoService.buscarPetPermitido(id);
 
         LocalDate hoje = LocalDate.now();
         LocalDate limiteProximas = hoje.plusDays(30);
@@ -227,5 +189,33 @@ public class PetService {
                 emDia,
                 status
         );
+    }
+
+    /**
+     * Dono do pet: quem está logado. O idUsuario do corpo só pode ser o próprio
+     * id; outra conta só o ADMIN escolhe — para os outros, a conta responde
+     * "não encontrada" (404), sem revelar se ela existe.
+     */
+    private Usuario donoDoPet(UUID idUsuario) {
+
+        Usuario logado = usuarioLogadoService.buscarUsuarioLogado();
+
+        if (idUsuario == null || idUsuario.equals(logado.getId())) {
+            return logado;
+        }
+
+        if (!usuarioLogadoService.ehAdmin(logado)) {
+            throw new EntityNotFoundException(
+                    "Usuário não encontrado"
+            );
+        }
+
+        return usuarioRepository
+                .findById(idUsuario)
+                .orElseThrow(() ->
+                        new EntityNotFoundException(
+                                "Usuário não encontrado"
+                        )
+                );
     }
 }

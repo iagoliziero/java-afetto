@@ -5,6 +5,7 @@ import br.com.fiap.java_afetto.dto.usuario.UsuarioLista;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioRequest;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioResponse;
 import br.com.fiap.java_afetto.dto.usuario.UsuarioRoleRequest;
+import br.com.fiap.java_afetto.exception.ConflitoException;
 import br.com.fiap.java_afetto.mapper.UsuarioMapper;
 import br.com.fiap.java_afetto.model.UserRole;
 import br.com.fiap.java_afetto.model.Usuario;
@@ -46,6 +47,9 @@ public class UsuarioService {
 
     public UsuarioResponse create(UsuarioRequest usuarioRequest) {
 
+        // E-mail repetido: 409 com mensagem (antes estourava no banco e chegava como 403 sem corpo)
+        garantirEmailLivre(usuarioRequest.email(), null);
+
         Usuario usuario = new Usuario();
 
         usuario.setNome(usuarioRequest.nome());
@@ -79,17 +83,12 @@ public class UsuarioService {
         );
     }
 
+    // Só a própria conta (o ADMIN vê qualquer uma); outra conta responde 404
     public UsuarioResponse read(UUID id) {
 
-        Usuario usuario = usuarioRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Usuário não encontrado"
-                        )
-                );
-
-        return usuarioMapper.usuarioToResponse(usuario);
+        return usuarioMapper.usuarioToResponse(
+                usuarioLogadoService.buscarUsuarioPermitido(id)
+        );
     }
 
     public UsuarioResponse readLogado() {
@@ -106,19 +105,18 @@ public class UsuarioService {
                 .map(usuarioMapper::usuarioToResponseLista);
     }
 
-    // A senha não muda aqui: só em PUT /usuario/me/senha (conferindo a atual)
+    // A senha não muda aqui: só em PUT /usuario/me/senha (conferindo a atual).
+    // Só a própria conta (o ADMIN edita qualquer uma); outra conta responde 404.
     public UsuarioResponse update(
             UUID id,
             UsuarioAtualizacaoRequest request
     ) {
 
-        Usuario usuario = usuarioRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Usuário não encontrado"
-                        )
-                );
+        Usuario logado = usuarioLogadoService.buscarUsuarioLogado();
+        Usuario usuario = usuarioLogadoService.buscarUsuarioPermitido(id);
+        boolean propriaConta = usuario.getId().equals(logado.getId());
+
+        garantirEmailLivre(request.email(), usuario.getId());
 
         usuario.setNome(request.nome());
         usuario.setCpf(request.cpf());
@@ -139,9 +137,14 @@ public class UsuarioService {
             usuario.setEndereco(endereco);
         }
 
-        return usuarioMapper.usuarioToResponse(
-                usuarioRepository.save(usuario)
-        );
+        Usuario salvo = usuarioRepository.save(usuario);
+
+        // Trocou o próprio e-mail: a sessão passa a ser do e-mail novo
+        if (propriaConta) {
+            usuarioLogadoService.atualizarEmailDaSessao(salvo.getEmail());
+        }
+
+        return usuarioMapper.usuarioToResponse(salvo);
     }
 
     public void delete(UUID id) {
@@ -167,5 +170,20 @@ public class UsuarioService {
         return usuarioMapper.usuarioToResponse(
                 usuarioRepository.save(usuario)
         );
+    }
+
+    /** O e-mail não pode ser de outra conta (maiúsculas e minúsculas contam como iguais). */
+    private void garantirEmailLivre(String email, UUID idDono) {
+
+        if (email == null) {
+            return;
+        }
+
+        usuarioRepository
+                .findFirstByEmailIgnoreCase(email.trim())
+                .filter(outro -> !outro.getId().equals(idDono))
+                .ifPresent(outro -> {
+                    throw new ConflitoException("Este e-mail já está cadastrado");
+                });
     }
 }

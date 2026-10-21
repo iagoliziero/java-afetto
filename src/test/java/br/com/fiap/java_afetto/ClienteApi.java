@@ -41,6 +41,10 @@ class ClienteApi {
         return enviar("PATCH", caminho, null);
     }
 
+    Resposta patch(String caminho, String json) {
+        return enviar("PATCH", caminho, json);
+    }
+
     Resposta delete(String caminho) {
         return enviar("DELETE", caminho, null);
     }
