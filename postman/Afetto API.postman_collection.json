@@ -1,0 +1,2400 @@
+{
+  "info": {
+    "_postman_id": "5f1e2a9c-7b3d-4c8e-9a61-afe770a01001",
+    "name": "Afetto API",
+    "description": "Passos já entregues: 1 usuário logado/404/vacinas por pet, 2 remédios, 3 consultas, 4 clínicas, 5 favoritas, 6 avaliações, 7 agendamento, 8 calendário, 9 finalizar cadastro, 10 redefinir senha, trocar senha logado (confere a atual), segurança (cada conta só acessa os próprios dados; login errado → 401; e-mail repetido → 409). Roda na ordem: cria um usuário novo (e-mail único a cada execução), faz login (o Postman guarda o cookie da sessão) e testa cada passo. Os ids são guardados sozinhos nas variáveis da coleção. Para rodar tudo: botão Run na coleção. Para trocar entre local e Render, mude a variável baseUrl.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "emailOutro",
+      "value": ""
+    },
+    {
+      "key": "idUsuario",
+      "value": ""
+    },
+    {
+      "key": "idPet",
+      "value": ""
+    },
+    {
+      "key": "idRemedio",
+      "value": ""
+    },
+    {
+      "key": "idConsulta",
+      "value": ""
+    },
+    {
+      "key": "idAgendamento",
+      "value": ""
+    },
+    {
+      "key": "diaAgendamento",
+      "value": ""
+    },
+    {
+      "key": "horaAgendamento",
+      "value": ""
+    },
+    {
+      "key": "hoje",
+      "value": ""
+    },
+    {
+      "key": "daqui7dias",
+      "value": ""
+    },
+    {
+      "key": "ha7dias",
+      "value": ""
+    },
+    {
+      "key": "daqui10dias",
+      "value": ""
+    },
+    {
+      "key": "daqui11dias",
+      "value": ""
+    },
+    {
+      "key": "ha10dias",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Datas relativas a hoje, para a consulta 'futura' e a 'passada' sempre funcionarem",
+          "const dia = (d) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);",
+          "pm.collectionVariables.set('hoje', dia(0));",
+          "pm.collectionVariables.set('daqui7dias', dia(7));",
+          "pm.collectionVariables.set('ha7dias', dia(-7));",
+          "pm.collectionVariables.set('daqui10dias', dia(10));",
+          "pm.collectionVariables.set('daqui11dias', dia(11));",
+          "pm.collectionVariables.set('ha10dias', dia(-10));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "Criar usuário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tutor de Teste\",\n  \"cpf\": \"12345678909\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha123\",\n  \"telefone\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('email', 'teste' + Date.now() + '@afetto.com');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idUsuario', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cadastro com e-mail repetido → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tutor de Teste\",\n  \"cpf\": \"12345678909\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha123\",\n  \"telefone\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Resposta contém \"Este e-mail já está cadastrado\"', () => pm.expect(pm.response.text()).to.include(\"Este e-mail já está cadastrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login com senha errada → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"senhaErrada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Resposta contém \"E-mail ou senha incorretos\"', () => pm.expect(pm.response.text()).to.include(\"E-mail ou senha incorretos\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Usuário logado, 404 e vacinas por pet",
+      "item": [
+        {
+          "name": "Usuário logado (GET /usuario/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/usuario/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('É o usuário criado', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('idUsuario')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Usuário que não existe → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/usuario/00000000-0000-0000-0000-000000000000"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Usuário não encontrado\"', () => pm.expect(pm.response.text()).to.include(\"Usuário não encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar pet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pet",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Thor\",\n  \"especie\": \"CACHORRO\",\n  \"raca\": \"Vira-lata\",\n  \"sexo\": \"MACHO\",\n  \"peso\": 12.5,\n  \"dataNasc\": \"2022-03-10\",\n  \"idUsuario\": \"{{idUsuario}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idPet', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar vacina",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/vacina",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeVacina\": \"V10\",\n  \"dataAplicacao\": \"{{ha10dias}}\",\n  \"proximaDose\": \"{{daqui10dias}}\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vacinas só deste pet (?idPet=)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vacina?idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Uma vacina', () => pm.expect(pm.response.json().content.length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Remédios",
+      "item": [
+        {
+          "name": "Cadastrar remédio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/remedio",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeRemedio\": \"Amoxicilina\",\n  \"dosagem\": \"1 comprimido\",\n  \"frequencia\": \"A cada 12 horas\",\n  \"dataInicio\": \"{{hoje}}\",\n  \"dataFim\": \"{{daqui7dias}}\",\n  \"observacoes\": \"Dar junto com a comida\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idRemedio', pm.response.json().id);",
+                  "pm.test('Resposta contém \"A cada 12 horas\"', () => pm.expect(pm.response.text()).to.include(\"A cada 12 horas\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remédios do usuário",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/remedio"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"Amoxicilina\"', () => pm.expect(pm.response.text()).to.include(\"Amoxicilina\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remédios do pet (?idPet=)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/remedio?idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"Amoxicilina\"', () => pm.expect(pm.response.text()).to.include(\"Amoxicilina\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver remédio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/remedio/{{idRemedio}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar remédio",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/remedio/{{idRemedio}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeRemedio\": \"Amoxicilina\",\n  \"dosagem\": \"2 comprimidos\",\n  \"frequencia\": \"A cada 12 horas\",\n  \"dataInicio\": \"{{hoje}}\",\n  \"dataFim\": \"{{daqui7dias}}\",\n  \"observacoes\": \"Dar junto com a comida\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"2 comprimidos\"', () => pm.expect(pm.response.text()).to.include(\"2 comprimidos\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fim antes do início → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/remedio",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeRemedio\": \"Amoxicilina\",\n  \"dosagem\": \"1 comprimido\",\n  \"frequencia\": \"A cada 12 horas\",\n  \"dataInicio\": \"{{hoje}}\",\n  \"dataFim\": \"{{ha7dias}}\",\n  \"observacoes\": \"Dar junto com a comida\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"A data de fim não pode ser antes da data de início\"', () => pm.expect(pm.response.text()).to.include(\"A data de fim não pode ser antes da data de início\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sem nome → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/remedio",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataInicio\": \"{{hoje}}\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"nomeRemedio\"', () => pm.expect(pm.response.text()).to.include(\"nomeRemedio\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir remédio",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/remedio/{{idRemedio}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remédio excluído → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/remedio/{{idRemedio}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Consultas",
+      "item": [
+        {
+          "name": "Agendar consulta (data futura)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/consulta",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Check-up anual\",\n  \"data\": \"{{daqui10dias}}\",\n  \"hora\": \"14:30\",\n  \"nomeVeterinario\": \"Dra. Ana\",\n  \"observacoes\": \"Levar a carteirinha\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idConsulta', pm.response.json().id);",
+                  "pm.test('Resposta contém \"AGENDADO\"', () => pm.expect(pm.response.text()).to.include(\"AGENDADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultas do pet (?idPet=)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/consulta?idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"Check-up anual\"', () => pm.expect(pm.response.text()).to.include(\"Check-up anual\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remarcar consulta",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/consulta/{{idConsulta}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Check-up anual\",\n  \"data\": \"{{daqui11dias}}\",\n  \"hora\": \"09:00\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"09:00\"', () => pm.expect(pm.response.text()).to.include(\"09:00\"));",
+                  "pm.test('Resposta contém \"AGENDADO\"', () => pm.expect(pm.response.text()).to.include(\"AGENDADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar consulta",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/consulta/{{idConsulta}}/cancelar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"CANCELADO\"', () => pm.expect(pm.response.text()).to.include(\"CANCELADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar de novo → 400",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/consulta/{{idConsulta}}/cancelar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"A consulta já está cancelada\"', () => pm.expect(pm.response.text()).to.include(\"A consulta já está cancelada\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar consulta cancelada → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/consulta/{{idConsulta}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Tentativa\",\n  \"data\": \"{{daqui11dias}}\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"Consulta cancelada não pode ser alterada\"', () => pm.expect(pm.response.text()).to.include(\"Consulta cancelada não pode ser alterada\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar exame passado (vira CONCLUIDO)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/consulta",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoEvento\": \"EXAME\",\n  \"descricao\": \"Hemograma\",\n  \"data\": \"{{ha10dias}}\",\n  \"idPet\": \"{{idPet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Resposta contém \"CONCLUIDO\"', () => pm.expect(pm.response.text()).to.include(\"CONCLUIDO\"));",
+                  "pm.test('Resposta contém \"EXAME\"', () => pm.expect(pm.response.text()).to.include(\"EXAME\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir consulta",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/consulta/{{idConsulta}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Clínicas",
+      "item": [
+        {
+          "name": "Listar clínicas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('8 clínicas', () => pm.expect(pm.response.json().content.length).to.eql(8));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clínicas perto de Pinheiros",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica?latitude=-23.5660&longitude=-46.6845"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const primeira = pm.response.json().content[0];",
+                  "pm.test('A mais perto vem primeiro', () => pm.expect(primeira.id).to.eql('c1a00000-0000-4000-8000-000000000001'));",
+                  "pm.test('Marcada como perto, a 0 km', () => { pm.expect(primeira.perto).to.eql(true); pm.expect(primeira.distanciaKm).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar por nome",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica?nome=lua"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Só a Lua Cheia', () => pm.expect(pm.response.json().content.length).to.eql(1));",
+                  "pm.test('Resposta contém \"Lua Cheia\"', () => pm.expect(pm.response.text()).to.include(\"Lua Cheia\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhe da clínica",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Equipe com 2 veterinários', () => pm.expect(pm.response.json().veterinarios.length).to.eql(2));",
+                  "pm.test('Resposta contém \"(11) 0000-0001\"', () => pm.expect(pm.response.text()).to.include(\"(11) 0000-0001\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clínica que não existe → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/00000000-0000-0000-0000-000000000000"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Clínica não encontrada\"', () => pm.expect(pm.response.text()).to.include(\"Clínica não encontrada\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Clínicas favoritas",
+      "item": [
+        {
+          "name": "Favoritar clínica",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/favorito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhe mostra favorita",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('favorita = true', () => pm.expect(pm.response.json().favorita).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Só as favoritas (?favoritas=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica?favoritas=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Uma favorita', () => pm.expect(pm.response.json().content.length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Desfavoritar",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/favorito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Favoritas vazia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica?favoritas=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nenhuma favorita', () => pm.expect(pm.response.json().content.length).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Favoritar de novo (para o teste de segurança)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/favorito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Avaliações",
+      "item": [
+        {
+          "name": "Avaliar clínica",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/avaliacao",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nota\": 5,\n  \"comentario\": \"Atendimento excelente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('É minha', () => pm.expect(pm.response.json().minha).to.eql(true));",
+                  "pm.test('Resposta contém \"Tutor T.\"', () => pm.expect(pm.response.text()).to.include(\"Tutor T.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Avaliações da clínica",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/avaliacao"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"Atendimento excelente\"', () => pm.expect(pm.response.text()).to.include(\"Atendimento excelente\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhe com nota média",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test('Tem avaliações', () => pm.expect(c.totalAvaliacoes).to.be.at.least(1));",
+                  "pm.test('Média entre 1 e 5', () => pm.expect(c.notaMedia).to.be.within(1, 5));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reavaliar (atualiza, não duplica)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/avaliacao",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nota\": 4,\n  \"comentario\": \"Muito bom\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nota 4', () => pm.expect(pm.response.json().nota).to.eql(4));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nota 6 → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/avaliacao",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nota\": 6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"A nota deve ser de 1 a 5\"', () => pm.expect(pm.response.text()).to.include(\"A nota deve ser de 1 a 5\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Apagar minha avaliação",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000001/avaliacao"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Agendamento",
+      "item": [
+        {
+          "name": "Horários livres (próximos 7 dias)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002/horarios"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const dia = pm.response.json().dias.find(d => d.horarios.length > 0);",
+                  "pm.test('Tem horário livre na semana', () => pm.expect(dia).to.not.be.undefined);",
+                  "pm.collectionVariables.set('diaAgendamento', dia.data);",
+                  "pm.collectionVariables.set('horaAgendamento', dia.horarios[0]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agendar no primeiro horário livre",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002/agendamento",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPet\": \"{{idPet}}\",\n  \"data\": \"{{diaAgendamento}}\",\n  \"hora\": \"{{horaAgendamento}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idAgendamento', pm.response.json().id);",
+                  "pm.test('Resposta contém \"AGENDADO\"', () => pm.expect(pm.response.text()).to.include(\"AGENDADO\"));",
+                  "pm.test('Resposta contém \"Hospital Veterinário Lua Cheia\"', () => pm.expect(pm.response.text()).to.include(\"Hospital Veterinário Lua Cheia\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "O horário some da lista",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002/horarios?inicio={{diaAgendamento}}&dias=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Horário ocupado', () => pm.expect(pm.response.json().dias[0].horarios).to.not.include(pm.collectionVariables.get('horaAgendamento')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mesmo horário de novo → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002/agendamento",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPet\": \"{{idPet}}\",\n  \"data\": \"{{diaAgendamento}}\",\n  \"hora\": \"{{horaAgendamento}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Resposta contém \"Esse horário já foi agendado\"', () => pm.expect(pm.response.text()).to.include(\"Esse horário já foi agendado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fora do expediente → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002/agendamento",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPet\": \"{{idPet}}\",\n  \"data\": \"{{diaAgendamento}}\",\n  \"hora\": \"07:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agendamento aparece no histórico do pet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/consulta?idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Consulta agendada está lá', () => pm.expect(pm.response.text()).to.include(pm.collectionVariables.get('idAgendamento')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhe da clínica com horário de funcionamento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tem expediente', () => pm.expect(pm.response.json().expediente.length).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar o agendamento",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/consulta/{{idAgendamento}}/cancelar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"CANCELADO\"', () => pm.expect(pm.response.text()).to.include(\"CANCELADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "O horário volta a ficar livre",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica/c1a00000-0000-4000-8000-000000000002/horarios?inicio={{diaAgendamento}}&dias=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Horário livre de novo', () => pm.expect(pm.response.json().dias[0].horarios).to.include(pm.collectionVariables.get('horaAgendamento')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Calendário",
+      "item": [
+        {
+          "name": "Calendário do período",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/calendario?inicio={{ha10dias}}&fim={{daqui10dias}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"\"VACINA\"\"', () => pm.expect(pm.response.text()).to.include(\"\\\"VACINA\\\"\"));",
+                  "pm.test('Resposta contém \"\"PROXIMA_DOSE\"\"', () => pm.expect(pm.response.text()).to.include(\"\\\"PROXIMA_DOSE\\\"\"));",
+                  "pm.test('Resposta contém \"Hemograma\"', () => pm.expect(pm.response.text()).to.include(\"Hemograma\"));",
+                  "pm.test('Total bate com a lista', () => pm.expect(pm.response.json().totalEventos).to.eql(pm.response.json().eventos.length));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Calendário só de um pet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/calendario?inicio={{ha10dias}}&fim={{daqui10dias}}&idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta contém \"V10\"', () => pm.expect(pm.response.text()).to.include(\"V10\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Período invertido → 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/calendario?inicio={{daqui10dias}}&fim={{ha10dias}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"A data final não pode ser antes da inicial\"', () => pm.expect(pm.response.text()).to.include(\"A data final não pode ser antes da inicial\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mês atual (sem período)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/calendario"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Finalizar cadastro",
+      "item": [
+        {
+          "name": "Perfil antes de finalizar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/usuario/me/perfil"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Incompleto', () => pm.expect(pm.response.json().perfilCompleto).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Finalizar cadastro",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/me/perfil",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoMoradia\": \"APARTAMENTO\",\n  \"telaProtecao\": true,\n  \"quantidadePets\": 0,\n  \"endereco\": {\n    \"cep\": \"01001-000\",\n    \"logradouro\": \"Praça da Sé\",\n    \"numero\": \"100\",\n    \"complemento\": \"Apto 12\",\n    \"bairro\": \"Sé\",\n    \"cidade\": \"São Paulo\",\n    \"estado\": \"SP\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Completo', () => pm.expect(pm.response.json().perfilCompleto).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quantidade de pets acompanha os cadastrados",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/usuario/me/perfil"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.test('Informou 0, tem 1 pet cadastrado: vale 1', () => pm.expect(p.quantidadePets).to.eql(Math.max(p.quantidadePetsInformada, p.petsCadastrados)));",
+                  "pm.test('Pelo menos 1', () => pm.expect(p.quantidadePets).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clínicas a partir do endereço",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tem o campo perto', () => pm.expect(pm.response.json().content[0]).to.have.property('perto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "UF inválida → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/me/perfil",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoMoradia\": \"CASA\",\n  \"telaProtecao\": false,\n  \"quantidadePets\": 1,\n  \"endereco\": {\n    \"cep\": \"01001-000\",\n    \"logradouro\": \"Praça da Sé\",\n    \"numero\": \"100\",\n    \"bairro\": \"Sé\",\n    \"cidade\": \"São Paulo\",\n    \"estado\": \"XX\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"UF inválida\"', () => pm.expect(pm.response.text()).to.include(\"UF inválida\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Segurança (outro usuário)",
+      "item": [
+        {
+          "name": "Criar outro usuário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Outro Tutor\",\n  \"cpf\": \"12345678909\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"email\": \"{{emailOutro}}\",\n  \"senha\": \"senha123\",\n  \"telefone\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('emailOutro', 'outro' + Date.now() + '@afetto.com');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login como o outro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailOutro}}\",\n  \"senha\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultas do pet alheio → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/consulta?idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Pet não encontrado\"', () => pm.expect(pm.response.text()).to.include(\"Pet não encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pet alheio → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/pet/{{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Pet não encontrado\"', () => pm.expect(pm.response.text()).to.include(\"Pet não encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar pet alheio → 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pet/{{idPet}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Invadido\",\n  \"especie\": \"GATO\",\n  \"sexo\": \"FEMEA\",\n  \"dataNasc\": \"2021-01-01\",\n  \"idUsuario\": \"{{idUsuario}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir pet alheio → 404 (o pet continua lá)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/pet/{{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar pet na conta do primeiro → 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pet",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Intruso\",\n  \"especie\": \"CACHORRO\",\n  \"sexo\": \"MACHO\",\n  \"dataNasc\": \"2022-03-10\",\n  \"idUsuario\": \"{{idUsuario}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Usuário não encontrado\"', () => pm.expect(pm.response.text()).to.include(\"Usuário não encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vacinas do pet alheio → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vacina?idPet={{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Pet não encontrado\"', () => pm.expect(pm.response.text()).to.include(\"Pet não encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lista de vacinas do outro só tem as dele (nenhuma)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vacina"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nenhuma vacina', () => pm.expect(pm.response.json().content.length).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dados do primeiro → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/usuario/{{idUsuario}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Resposta contém \"Usuário não encontrado\"', () => pm.expect(pm.response.text()).to.include(\"Usuário não encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar o primeiro → 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/{{idUsuario}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Invadido\",\n  \"cpf\": \"12345678909\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"email\": \"{{email}}\",\n  \"telefone\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar todas as contas (só ADMIN) → 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/usuario"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Virar ADMIN (só ADMIN troca role) → 403",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/{{idUsuario}}/role",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Favoritas do outro não incluem as do primeiro",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/clinica?favoritas=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nenhuma favorita', () => pm.expect(pm.response.json().content.length).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Calendário do outro vem vazio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/calendario?inicio={{ha10dias}}&fim={{daqui10dias}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sem eventos', () => pm.expect(pm.response.json().totalEventos).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login de volta como o primeiro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Redefinir senha (sem login)",
+      "item": [
+        {
+          "name": "Dados que não conferem → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/senha/redefinir",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"cpf\": \"000.000.000-00\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"novaSenha\": \"novaSenha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"Os dados não conferem\"', () => pm.expect(pm.response.text()).to.include(\"Os dados não conferem\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redefinir com os dados certos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/senha/redefinir",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"cpf\": \"123.456.789-09\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"novaSenha\": \"novaSenha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login com a senha nova",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"novaSenha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12. Trocar senha (logado)",
+      "item": [
+        {
+          "name": "Senha atual errada → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/me/senha",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"senhaAtual\": \"chute123\",\n  \"novaSenha\": \"trocada123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Resposta contém \"A senha atual está incorreta\"', () => pm.expect(pm.response.text()).to.include(\"A senha atual está incorreta\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Trocar com a senha atual certa",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/me/senha",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"senhaAtual\": \"novaSenha123\",\n  \"novaSenha\": \"trocada123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar dados não muda a senha (o campo senha é ignorado)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuario/{{idUsuario}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tutor de Teste\",\n  \"cpf\": \"12345678909\",\n  \"dataNascimento\": \"1995-05-20\",\n  \"email\": \"{{email}}\",\n  \"telefone\": \"11999999999\",\n  \"senha\": \"naoVaiMudar1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login com a senha trocada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"trocada123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13. Limpeza",
+      "item": [
+        {
+          "name": "Excluir pet com vacina e exame (antes dava 500)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/pet/{{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pet excluído → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/pet/{{idPet}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
